@@ -24,6 +24,7 @@ const NAV_GROUPS: Array<{ title: string; items: Array<{ to: string; label: strin
     items: [
       { to: '/disposal', label: '处置簿' },
       { to: '/sync', label: '同步对照器' },
+      { to: '/safety', label: '策略安全评估' },
       { to: '/selfcheck', label: '自检与验证' },
     ],
   },

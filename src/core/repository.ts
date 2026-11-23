@@ -27,8 +27,14 @@ import type {
   DeviceLedger,
   Rectification,
 } from './types';
+import type { SafetyEvaluation } from './safetyTypes';
 
-const META_KEYS = { mapping: 'mapping', dict: 'contribution_dict' };
+const META_KEYS = {
+  mapping: 'mapping',
+  dict: 'contribution_dict',
+  safetyEval: 'safety_evaluation',
+  grayTrajectory: 'gray_trajectory',
+};
 
 export const repository = {
   raw: () => getAll<RawRecord>(STORES.raw),
@@ -57,6 +63,20 @@ export const repository = {
   saveDict: (values: string[]) =>
     putOne(STORES.meta, { key: META_KEYS.dict, value: values }),
   loadDict: () => getOne<{ key: string; value: string[] }>(STORES.meta, META_KEYS.dict),
+
+  // ---------- 压缩策略安全评估 ----------
+  saveSafetyEval: async (evalResult: SafetyEvaluation) => {
+    if (!evalResult || typeof evalResult.id !== 'string' || !Array.isArray(evalResult.ledger)) {
+      throw new Error('安全评估产物结构不完整，拒绝落盘');
+    }
+    await putOne(STORES.meta, { key: META_KEYS.safetyEval, value: evalResult });
+  },
+  loadSafetyEval: () =>
+    getOne<{ key: string; value: SafetyEvaluation }>(STORES.meta, META_KEYS.safetyEval),
+  saveGrayTrajectory: (trajectory: unknown) =>
+    putOne(STORES.meta, { key: META_KEYS.grayTrajectory, value: trajectory }),
+  loadGrayTrajectory: () =>
+    getOne<{ key: string; value: unknown }>(STORES.meta, META_KEYS.grayTrajectory),
 
   saveVerifyOutput: async (out: {
     alerts: Alert[];

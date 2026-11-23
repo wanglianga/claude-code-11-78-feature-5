@@ -23,6 +23,9 @@ import type {
   UserRole,
 } from '../core/types';
 import { useAuth } from './auth';
+import { buildSafetyDataset } from '../core/safetyScenario';
+import { evaluateSafety } from '../core/safetyEval';
+import type { SafetyEvaluation } from '../core/safetyTypes';
 
 export const NOW_ISO = t(18, 0);
 
@@ -42,6 +45,8 @@ export interface AppSnapshot {
   workerMessage: string;
   lastElapsedMs: number;
   lastDecodeMs: number;
+  safety: SafetyEvaluation | null;
+  safetyError: string | null;
   error: string | null;
 }
 
@@ -55,6 +60,7 @@ interface AppCtx extends AppSnapshot {
     comment: string,
   ) => Promise<void>;
   resolveConflict: (entityId: string, resolution: SyncConflict['resolution']) => Promise<void>;
+  runSafetyEval: () => Promise<void>;
   resetWorkspace: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -76,6 +82,8 @@ const EMPTY: AppSnapshot = {
   workerMessage: '待装载',
   lastElapsedMs: 0,
   lastDecodeMs: 0,
+  safety: null,
+  safetyError: null,
   error: null,
 };
 
@@ -85,7 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [snap, setSnap] = useState<AppSnapshot>(EMPTY);
 
   const refresh = useCallback(async () => {
-    const [rawCount, alerts, events, memberships, actions, conflicts, reports, dictRow] =
+    const [rawCount, alerts, events, memberships, actions, conflicts, reports, dictRow, safetyRow] =
       await Promise.all([
         repository.raw(),
         repository.alerts(),
@@ -95,6 +103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         repository.conflicts(),
         repository.reports(),
         repository.loadDict(),
+        repository.loadSafetyEval(),
       ]);
     setSnap((prev) => ({
       ...prev,
@@ -107,6 +116,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       conflicts,
       report: reports[0] ?? null,
       dictValues: dictRow?.value ?? [],
+      safety: safetyRow?.value ?? null,
     }));
   }, []);
 
@@ -264,6 +274,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
+  const runSafetyEval = useCallback(async () => {
+    setSnap((p) => ({ ...p, safetyError: null }));
+    try {
+      const dataset = buildSafetyDataset();
+      const result = evaluateSafety(dataset);
+      await repository.saveSafetyEval(result);
+      setSnap((p) => ({ ...p, safety: result, safetyError: null }));
+    } catch (err) {
+      setSnap((p) => ({ ...p, safetyError: (err as Error).message }));
+    }
+  }, []);
+
   const resetWorkspace = useCallback(async () => {
     workerRef.current?.terminate();
     workerRef.current = null;
@@ -278,10 +300,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       runVerify,
       addDisposal,
       resolveConflict,
+      runSafetyEval,
       resetWorkspace,
       refresh,
     }),
-    [snap, loadScenario, runVerify, addDisposal, resolveConflict, resetWorkspace, refresh],
+    [snap, loadScenario, runVerify, addDisposal, resolveConflict, runSafetyEval, resetWorkspace, refresh],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -12,6 +12,7 @@ import EvidencePage from './ui/pages/EvidencePage';
 import DisposalPage from './ui/pages/DisposalPage';
 import SyncPage from './ui/pages/SyncPage';
 import SelfCheckPage from './ui/pages/SelfCheckPage';
+import SafetyPage from './ui/pages/SafetyPage';
 
 export default function App() {
   const { user } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/disposal" element={<DisposalPage />} />
         <Route path="/sync" element={<SyncPage />} />
         <Route path="/selfcheck" element={<SelfCheckPage />} />
+        <Route path="/safety" element={<SafetyPage />} />
         <Route path="*" element={<Navigate to="/loader" replace />} />
       </Route>
     </Routes>
